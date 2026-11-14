@@ -1,0 +1,359 @@
+@startuml
+left to right direction
+skinparam style strictuml
+skinparam classAttributeIconSize 0
+skinparam linetype polyline
+skinparam nodesep 30
+skinparam ranksep 55
+skinparam PackagePadding 15
+
+' ==========================================
+' COLUMN 1: SHARED CONTRACTS & EXCEPTIONS
+' ==========================================
+package "Common & Core Interfaces" {
+    together {
+        enum LightStateEnum {
+            + RED
+            + YELLOW
+            + GREEN
+            + ALL_RED
+            + FLASHING_YELLOW
+            + FLASHING_RED
+            + PEDESTRIAN_WALK
+            + PEDESTRIAN_CLEARANCE
+        }
+        enum StrategyType {
+            + FIXED_TIME
+            + ACTUATED
+            + PEDESTRIAN_PRIORITY
+            + DILEMMA_ZONE
+            + EMERGENCY_PRIORITY
+        }
+        enum VehicleType {
+            + Sedan
+            + PublicTransitBus
+            + Motorcycle
+            + Truck
+            + EmergencyVehicle
+        }
+        class VehicleTelemetry <<struct>> {
+            + speedMps: double
+            + distanceMeters: double
+            + weightTons: double
+        }
+    }
+
+    together {
+        interface IObserver {
+            + {abstract} ~IObserver()
+            + {abstract} update(eventSourceId: std::string) : void
+        }
+        interface ISubject {
+            + {abstract} ~ISubject()
+            + {abstract} registerObserver(observer: IObserver*) : void
+            + {abstract} removeObserver(observer: IObserver*) : void
+            + {abstract} notifyObservers() : void
+        }
+        class SensorFailureException <<exception>> {
+            + SensorFailureException(msg: const std::string&)
+        }
+        class InvalidPhaseException <<exception>> {
+            + InvalidPhaseException(msg: const std::string&)
+        }
+    }
+}
+
+' ==========================================
+' COLUMN 2: MEMBER 2 (INPUTS & SENSING)
+' ==========================================
+package "Member 2: Sensing & Traffic (OBSERVER SUBJECTS)" {
+    abstract class Vehicle {
+        # type: VehicleType
+        # telemetry: VehicleTelemetry
+        + Vehicle(t: VehicleType, tel: VehicleTelemetry)
+        + {abstract} ~Vehicle()
+        + updateTelemetry(newTelemetry: const VehicleTelemetry&) : void
+        + getTelemetry() : VehicleTelemetry
+        + getType() : VehicleType
+        + {abstract} isEmergency() : bool
+        + {abstract} isPublicTransit() : bool
+        + {abstract} printStatus() : void
+    }
+
+    together {
+        class SedanVehicle {
+            + SedanVehicle(tel: VehicleTelemetry)
+            + isEmergency() : bool
+            + isPublicTransit() : bool
+            + printStatus() : void
+        }
+        class BusVehicle {
+            + BusVehicle(tel: VehicleTelemetry)
+            + isEmergency() : bool
+            + isPublicTransit() : bool
+            + printStatus() : void
+        }
+        class MotorcycleVehicle {
+            + MotorcycleVehicle(tel: VehicleTelemetry)
+            + isEmergency() : bool
+            + isPublicTransit() : bool
+            + printStatus() : void
+        }
+        class TruckVehicle {
+            + TruckVehicle(tel: VehicleTelemetry)
+            + isEmergency() : bool
+            + isPublicTransit() : bool
+            + printStatus() : void
+        }
+        class EmergencyVehicle {
+            + EmergencyVehicle(tel: VehicleTelemetry)
+            + isEmergency() : bool
+            + isPublicTransit() : bool
+            + printStatus() : void
+        }
+    }
+
+    class VehicleFactory {
+        + {static} createVehicle(type: VehicleType, tel: VehicleTelemetry) : std::unique_ptr<Vehicle>
+    }
+
+    class Sensor {
+        - laneID: std::string
+        - incomingQueue: std::vector<std::unique_ptr<Vehicle>>
+        - observers: std::vector<IObserver*>
+        - isFunctional: bool
+        - pedestrianWaiting: bool
+        - pedestrianCrossingActive: bool
+        + Sensor(id: std::string)
+        + addVehicleToLane(v: std::unique_ptr<Vehicle>) : void
+        + processNextVehicle() : void
+        + getIncomingVehicles() : const std::vector<std::unique_ptr<Vehicle>>&
+        + getCarCount() : int
+        + isEmergencyPresent() : bool
+        + detectPedestrianWaiting() : void
+        + startPedestrianCrossing() : void
+        + completePedestrianCrossing() : void
+        + hasPedestrianWaiting() : bool
+        + isPedestrianCrossing() : bool
+        + getLaneID() : std::string
+        + setFunctional(status: bool) : void
+        + isHealthy() : bool
+        + registerObserver(observer: IObserver*) : void
+        + removeObserver(observer: IObserver*) : void
+        + notifyObservers() : void
+    }
+
+    SedanVehicle --|> Vehicle
+    BusVehicle --|> Vehicle
+    MotorcycleVehicle --|> Vehicle
+    TruckVehicle --|> Vehicle
+    EmergencyVehicle --|> Vehicle
+
+    VehicleFactory ..> Vehicle : creates
+    Sensor *-- Vehicle
+    Sensor ..|> ISubject
+    Sensor ..> SensorFailureException : throws
+}
+
+' ==========================================
+' COLUMN 3: MEMBER 3 (ORCHESTRATION & STRATEGIES)
+' ==========================================
+package "Member 3: Orchestration & Brain (STRATEGY & LISTENERS)" {
+    class Intersection {
+        - intersectionID: std::string
+        - phases: std::vector<std::unique_ptr<Phase>>
+        - sensors: std::vector<std::unique_ptr<Sensor>>
+        + Intersection(id: std::string)
+        + addPhase(phase: std::unique_ptr<Phase>) : void
+        + addSensor(sensor: std::unique_ptr<Sensor>) : void
+        + getPhases() : const std::vector<std::unique_ptr<Phase>>&
+        + getSensors() : const std::vector<std::unique_ptr<Sensor>>&
+        + tickAllPhases() : void
+    }
+
+    class Controller {
+        - targetIntersection: std::unique_ptr<Intersection>
+        - activeStrategy: std::unique_ptr<TimingStrategy>
+        - safetyStrategy: std::unique_ptr<DilemmaZoneProtectionStrategy>
+        - emergencyHandler: std::unique_ptr<EmergencyPriorityHandler>
+        - clock: std::unique_ptr<SimulationClock>
+        - diagnostics: std::unique_ptr<MetricsLogger>
+        - pedestrianCrossRequested: bool
+        - pedestrianInCrosswalk: bool
+        - nightModeActive: bool
+        - failSafeActive: bool
+        + Controller(intersection: std::unique_ptr<Intersection>)
+        + setTimingStrategy(newStrategy: std::unique_ptr<TimingStrategy>) : void
+        + setNightMode(enabled: bool) : void
+        + update(eventSourceId: std::string) : void
+        + stepSimulationClock() : void
+    }
+
+    abstract class TimingStrategy {
+        + {abstract} ~TimingStrategy()
+        + {abstract} calculateGreenDuration(carCount: int) : int
+        + {abstract} getStrategyType() : StrategyType
+    }
+
+    together {
+        class FixedTimingStrategy {
+            - defaultGreenTime: int
+            + FixedTimingStrategy(duration: int)
+            + calculateGreenDuration(carCount: int) : int
+            + getStrategyType() : StrategyType
+        }
+        class ActuatedTimingStrategy {
+            - baseGreenTime: int
+            - secPerCar: int
+            - maxGreenTime: int
+            + ActuatedTimingStrategy(base: int, step: int, max: int)
+            + calculateGreenDuration(carCount: int) : int
+            + getStrategyType() : StrategyType
+        }
+        class PedestrianPriorityStrategy {
+            - baseWalkTime: int
+            - clearanceExtensionSec: int
+            - maxWalkHoldTime: int
+            + PedestrianPriorityStrategy(walkTime: int, extSec: int, maxHold: int)
+            + calculateGreenDuration(carCount: int) : int
+            + extendClearanceIfCrossing(stillCrossing: bool) : int
+            + getStrategyType() : StrategyType
+        }
+    }
+
+    together {
+        class SimulationClock {
+            - currentTick: int
+            - timeScale: int
+            + SimulationClock()
+            + advanceClock() : void
+            + getCurrentTick() : int
+            + isNightHours() : bool
+        }
+        class EmergencyPriorityHandler {
+            - preEmptionActive: bool
+            - savedPhaseId: int
+            + EmergencyPriorityHandler()
+            + handleEmergencyPreemption(triggerLaneId: std::string, managedPhases: std::vector<Phase*>&) : void
+        }
+        class DilemmaZoneProtectionStrategy {
+            - yellowDurationSeconds: int
+            - speedThresholdMps: double
+            + DilemmaZoneProtectionStrategy(yellowTime: int, speedThresh: double)
+            + checkDilemmaZoneHazard(speed: double, distance: double) : bool
+        }
+        class MetricsLogger {
+            - logFileName: std::string
+            - criticalEventCount: int
+            + MetricsLogger(filename: std::string)
+            + logTelemetryFrame(timeTick: int, id: std::string, count: int) : void
+            + logFaultAlert(timeTick: int, errorMsg: std::string) : void
+        }
+    }
+
+    FixedTimingStrategy --|> TimingStrategy
+    ActuatedTimingStrategy --|> TimingStrategy
+    PedestrianPriorityStrategy --|> TimingStrategy
+
+    Intersection *-- Sensor
+    Intersection ..> InvalidPhaseException : throws
+
+    Controller ..|> IObserver
+    Controller *-- Intersection
+    Controller *-- TimingStrategy
+    Controller *-- DilemmaZoneProtectionStrategy
+    Controller *-- EmergencyPriorityHandler
+    Controller *-- SimulationClock
+    Controller *-- MetricsLogger
+    Controller ..> SensorFailureException : catches
+    Controller ..> InvalidPhaseException : catches
+}
+
+' ==========================================
+' COLUMN 4: MEMBER 1 (SIGNALING INFRASTRUCTURE)
+' ==========================================
+package "Member 1: Signaling Infrastructure (STATE)" {
+    class Phase {
+        - assignedLights: std::vector<TrafficLight*>
+        - hasRightOfWay: bool
+        - isMainStreet: bool
+        + Phase(mainStreet: bool)
+        + addLight(light: TrafficLight*) : void
+        + grantRightOfWay() : void
+        + revokeRightOfWay() : void
++ grantPedestrianWalk() : void
++ enterNightMode() : void
++ enterFailSafeMode() : void
++ updatePhase() : void
+}
+class TrafficLight {
+- currentState: std::unique_ptr
+- timeElapsedInState: int
+- redDuration: int
+- yellowDuration: int
+- greenDuration: int
+- isMalfunctioning: bool
++ TrafficLight(r: int, y: int, g: int)
++ changeState(newState: std::unique_ptr) : void
++ tick() : void
++ getCurrentColor() : LightStateEnum
++ getTimeElapsed() : int
++ resetStateTimer() : void
++ getDurationForState(state: LightStateEnum) : int
++ triggerMalfunction() : void
++ repairMalfunction() : void
+}
+abstract class LightState {
++ {abstract} ~LightState()
++ {abstract} handleTick(context: TrafficLight&) : void
++ {abstract} getStateEnum() : LightStateEnum
+}
+together {
+class RedState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class YellowState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class GreenState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class AllRedState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class FlashingYellowState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class FlashingRedState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class PedestrianWalkState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+class PedestrianClearanceState {
++ handleTick(context: TrafficLight&) : void
++ getStateEnum() : LightStateEnum
+}
+}
+Intersection *-- Phase
+Phase o-- TrafficLight
+TrafficLight *-- LightState
+RedState --|> LightState
+YellowState --|> LightState
+GreenState --|> LightState
+AllRedState --|> LightState
+FlashingYellowState --|> LightState
+FlashingRedState --|> LightState
+PedestrianWalkState --|> LightState
+PedestrianClearanceState --|> LightState
+Phase ..> InvalidPhaseException : throws
+TrafficLight ..> InvalidPhaseException : throws
+}
+@enduml
