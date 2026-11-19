@@ -26,8 +26,6 @@ package "Common & Core Interfaces" {
             + FIXED_TIME
             + ACTUATED
             + PEDESTRIAN_PRIORITY
-            + DILEMMA_ZONE
-            + EMERGENCY_PRIORITY
         }
         enum VehicleType {
             + Sedan
