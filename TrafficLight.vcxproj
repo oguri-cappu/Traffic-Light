@@ -125,10 +125,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\Common.hpp" />
+    <ClInclude Include="include\TrafficLight.hpp" />
     <ClInclude Include="include\LightState.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\TrafficLight.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
