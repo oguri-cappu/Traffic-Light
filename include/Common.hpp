@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-//#include <vector>
+#include <vector>
 #include <stdexcept>
 
 class IObserver {
@@ -46,9 +46,7 @@ enum class LightStateEnum {
 enum class StrategyType {
 	FIXED_TIME,
 	ACTUATUED,
-	PEDESTRIAN_PRIORITY,
-	DILEMMA_ZONE,
-	EMERGENCY_PRIORITY
+	PEDESTRIAN_PRIORITY
 };
 
 class InvalidPhaseException :public std::runtime_error {
