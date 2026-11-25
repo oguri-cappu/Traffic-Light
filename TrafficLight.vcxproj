@@ -125,9 +125,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\Common.hpp" />
+    <ClInclude Include="include\orchestration\Controller.hpp" />
+    <ClInclude Include="include\orchestration\Intersection.hpp" />
+    <ClInclude Include="include\orchestration\SafetyAndPriority.hpp" />
+    <ClInclude Include="include\orchestration\SimulationUtils.hpp" />
+    <ClInclude Include="include\orchestration\TimingStrategy.hpp" />
+    <ClInclude Include="include\sensing\Sensor.hpp" />
+    <ClInclude Include="include\signaling\Phase.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\orchestration\Controller.cpp" />
+    <ClCompile Include="src\orchestration\Intersection.cpp" />
+    <ClCompile Include="src\orchestration\SafetyAndPriority.cpp" />
+    <ClCompile Include="src\orchestration\SimulationUtils.cpp" />
+    <ClCompile Include="src\orchestration\TimingStrategy.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
