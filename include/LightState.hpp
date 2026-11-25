@@ -9,3 +9,4 @@ public:
 	virtual void handleTick(TrafficLight& context) = 0;
 	virtual LightStateEnum getStateEnum() const = 0;
 };
+
